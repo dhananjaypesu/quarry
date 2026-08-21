@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test with race detector
+        run: go test ./... -race -count=1 -timeout 900s
+
+      # The randomized model test explores a different sequence of statements
+      # on every run, so repeating it is how a rare planner or index-
+      # maintenance bug gets caught rather than merely being possible.
+      - name: Repeat the randomized model test
+        run: go test . -run TestRandomizedAgainstModel -race -count=5 -timeout 900s
+
+      - name: Coverage
+        run: |
+          go test ./... -coverpkg=./... -coverprofile=coverage.out -count=1
+          go tool cover -func=coverage.out | tail -1

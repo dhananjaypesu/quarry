@@ -1,0 +1,5 @@
+bin/
+benchdata/
+quarrydata/
+coverage.out
+*.test
